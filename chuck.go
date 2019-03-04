@@ -1,7 +1,7 @@
-package main
+package chucknorrisgo
 
 import (
-	"fmt"
+	"encoding/json"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const base_url string = "http://api.icndb.com/jokes/"
+const BaseURL string = "http://api.icndb.com/jokes/"
 
 type Joke struct {
 	FirstName     string
@@ -18,26 +18,26 @@ type Joke struct {
 	RequestParams string
 }
 
-func (joke *Joke) Random() string {
-	request_url := base_url + "random/" + joke.RequestParams
-	result, err := MakeRequest(request_url)
+func (joke *Joke) Random() JokeResponse {
+	requestURL := BaseURL + "random/" + joke.RequestParams
+	result, err := MakeRequest(requestURL)
 
 	if err != nil {
-		return ""
+		return JokeResponse{}
 	}
 
-	return result
+	return WrapResponse(result)
 }
 
-func (joke *Joke) Get(JokeID int) string {
-	request_url := base_url + strconv.Itoa(JokeID) + "/" + joke.RequestParams
-	result, err := MakeRequest(request_url)
+func (joke *Joke) Get(JokeID int) JokeResponse {
+	requestURL := BaseURL + strconv.Itoa(JokeID) + "/" + joke.RequestParams
+	result, err := MakeRequest(requestURL)
 
 	if err != nil {
-		return ""
+		return JokeResponse{}
 	}
 
-	return result
+	return WrapResponse(result)
 }
 
 type ChuckNorris struct {
@@ -87,6 +87,21 @@ func (cn *ChuckNorris) Categories(cat ...string) *ChuckNorris {
 	return cn
 }
 
+type JokeResponse struct {
+	JokeID   float64
+	JokeText string
+}
+
+func WrapResponse(jsonResp string) JokeResponse {
+	var result map[string]interface{}
+	err := json.Unmarshal([]byte(jsonResp), &result)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	result = result["value"].(map[string]interface{})
+	return JokeResponse{JokeID: result["id"].(float64), JokeText: result["joke"].(string)}
+}
+
 func MakeRequest(url string) (string, error) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -101,14 +116,4 @@ func MakeRequest(url string) (string, error) {
 	}
 
 	return string(body), nil
-}
-
-func main() {
-	cn := ChuckNorris{}
-
-	cat := []string{"explicit"}
-	joke := cn.FirstName("Adit").LastName("Keda").Categories(cat...).Build()
-
-	fmt.Println(joke.Random())
-	fmt.Println(joke.Get(528))
 }
